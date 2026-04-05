@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # Redis - 短期记忆存储
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Python实现
+  python-agent:
+    build:
+      context: ./python-impl
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - MODEL_NAME=${MODEL_NAME:-gpt-4o}
+      - REDIS_URL=redis://redis:6379/0
+      - OTEL_SERVICE_NAME=smart-cs-python
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Java实现
+  java-agent:
+    build:
+      context: ./java-impl
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Go实现
+  go-agent:
+    build:
+      context: ./go-impl
+      dockerfile: Dockerfile
+    ports:
+      - "8090:8090"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PORT=8090
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Jaeger - 全链路追踪可视化 (可选)
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+volumes:
+  redis_data:

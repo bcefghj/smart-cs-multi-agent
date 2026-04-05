@@ -1,0 +1,31 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: smart-cs-agent
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:sk-your-key}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${MODEL_NAME:gpt-4o}
+          temperature: 0.0
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: 0
+
+# 自定义配置
+smartcs:
+  memory:
+    short-term:
+      max-turns: 20
+      ttl-seconds: 1800
+    long-term:
+      index-path: ./vector_store/faiss_index
+  tracing:
+    service-name: smart-cs-agent-java
+    otlp-endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
